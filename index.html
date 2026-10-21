@@ -129,6 +129,18 @@ ul.items li{border-bottom:1px solid var(--line);padding:1rem 0}
 /* Bulletins de vote (cases ou boutons radio) */
 .ballot{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.9rem}
 .opt{position:relative;display:block;border:1.5px solid var(--line);border-radius:4px;padding:1rem 1rem 1rem 3rem;cursor:pointer;background:var(--bg)}
+.ballot.pics{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.1rem}
+.opt.pic{padding:0;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s ease,box-shadow .15s ease}
+.opt.pic:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(12,4,3,.08)}
+.opt.pic .img{aspect-ratio:4/3;background:var(--orange-100);position:relative;overflow:hidden}
+.opt.pic .img img{width:100%;height:100%;object-fit:cover;display:block}
+.opt.pic .img .ph{position:absolute;inset:0;display:flex;align-items:flex-end;padding:.8rem 1rem;font-stretch:125%;font-weight:900;font-size:2.4rem;line-height:1;color:#fff;text-transform:uppercase;background:var(--orange)}
+.opt.pic .img .ph.v{background:var(--vert);color:var(--noir)}
+.opt.pic .img .ph.n{background:var(--noir)}
+.opt.pic .body{padding:.9rem 1rem 1.1rem}
+.opt.pic input{top:.8rem;left:auto;right:.8rem;width:1.5rem;height:1.5rem;z-index:2}
+.opt.pic .badge{position:absolute;top:.6rem;right:.6rem;width:2.2rem;height:2.2rem;border-radius:999px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);z-index:1}
+.opt.pic:has(input:checked) .img::after{content:"Choisi";position:absolute;left:.7rem;top:.7rem;background:var(--noir);color:#fff;font-stretch:75%;font-weight:800;padding:.15rem .6rem;border-radius:999px}
 .opt input{position:absolute;left:1rem;top:1.15rem;width:1.2rem;height:1.2rem;accent-color:var(--vert-900)}
 .opt:has(input:checked){border-color:var(--vert);background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--vert)}
 .opt:has(input:disabled:not(:checked)){opacity:.5;cursor:not-allowed}
@@ -393,7 +405,7 @@ const api = {
   },
   async themes(){
     if(!sb) return demo.load().themes;
-    const { data, error } = await sb.from("themes").select("id,title,description,created_at").order("created_at",{ascending:false}); if(error) throw error; return data;
+    const { data, error } = await sb.from("themes").select("id,title,description,image_url,created_at").order("created_at",{ascending:false}); if(error) throw error; return data;
   },
   async proposeTheme(w, title, description){
     if(sb) return rpc("propose_theme", { ...idArgs(w), p_title:title, p_description:description });
@@ -527,8 +539,10 @@ async function renderBallotThemes(){
   if(sessionDone.themes) return z.innerHTML = doneBox(`<strong>Vote enregistré.</strong> Merci ! Rendez-vous au temps 3 pour découvrir les thèmes gagnants.`);
   let themes; try{ themes = await api.themes(); }catch(e){ return z.innerHTML = soon("Impossible de charger les thèmes. Rechargez la page."); }
   if(!themes.length) return z.innerHTML = soon("Aucun thème à départager.");
-  z.innerHTML = `<fieldset class="bare"><legend class="sr">Thèmes</legend><div class="ballot">${
-    themes.map(t => `<label class="opt"><input type="checkbox" name="vt" value="${esc(t.id)}"><span class="it-title">${esc(t.title)}</span><span class="it-desc">${esc(t.description)}</span></label>`).join("")
+  z.innerHTML = `<fieldset class="bare"><legend class="sr">Thèmes</legend><div class="ballot pics">${
+    themes.map((t,i) => `<label class="opt pic"><span class="badge" aria-hidden="true"></span><input type="checkbox" name="vt" value="${esc(t.id)}" aria-label="${esc(t.title)}">
+      <span class="img">${t.image_url ? `<img src="${esc(t.image_url)}" alt="" loading="lazy">` : `<span class="ph ${["","v","n"][i%3]}" aria-hidden="true">${esc((t.title||"?").trim().charAt(0))}</span>`}</span>
+      <span class="body"><span class="it-title">${esc(t.title)}</span><span class="it-desc">${esc(t.description)}</span></span></label>`).join("")
   }</div></fieldset><div class="votebar"><span class="count" id="vtCount">0 / ${MAX_THEME_VOTES} choisi</span><button class="btn" id="vtBtn" disabled>Valider mon vote</button></div><div class="msg" id="msgVt" role="status"></div>`;
   const boxes = $$("input[name=vt]");
   const sync = () => { const n = boxes.filter(b=>b.checked).length; boxes.forEach(b => b.disabled = !b.checked && n >= MAX_THEME_VOTES);
