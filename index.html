@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Exposition du Lycée · 13 mars 2027 · Bellecour École</title>
+<meta name="description" content="Exposition du Lycée Bellecour École, 13 mars 2027 : proposez un thème, votez, nommez l'expo et inscrivez-vous au vernissage.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://exposition-lycee-bellecour.vercel.app/">
+<meta property="og:title" content="L'expo du Lycée · 13 mars 2027 · Bellecour École">
+<meta property="og:description" content="Thème, nom, affiche : les élèves choisissent, les familles viennent au vernissage.">
+<meta property="og:image" content="https://exposition-lycee-bellecour.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://exposition-lycee-bellecour.vercel.app/og-image.png">
+<meta name="theme-color" content="#FF4F38">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
@@ -137,7 +149,9 @@ ul.items li{border-bottom:1px solid var(--line);padding:1rem 0}
 .opt.pic .img .ph{position:absolute;inset:0;display:flex;align-items:flex-end;padding:.8rem 1rem;font-stretch:125%;font-weight:900;font-size:2.4rem;line-height:1;color:#fff;text-transform:uppercase;background:var(--orange)}
 .opt.pic .img .ph.v{background:var(--vert);color:var(--noir)}
 .opt.pic .img .ph.n{background:var(--noir)}
-.opt.pic .body{padding:.9rem 1rem 1.1rem}
+.opt.pic .body{padding:.9rem 1rem 1.1rem;display:flex;flex-direction:column;flex:1}
+.opt.pic .it-title{line-height:1.3;min-height:calc(2 * 1.3em);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:.35rem}
+.opt.pic .it-desc{margin-top:0;line-height:1.45}
 .opt.pic input{top:.8rem;left:auto;right:.8rem;width:1.5rem;height:1.5rem;z-index:2}
 .opt.pic .badge{position:absolute;top:.6rem;right:.6rem;width:2.2rem;height:2.2rem;border-radius:999px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);z-index:1}
 .opt.pic:has(input:checked) .img::after{content:"Choisi";position:absolute;left:.7rem;top:.7rem;background:var(--noir);color:#fff;font-stretch:75%;font-weight:800;padding:.15rem .6rem;border-radius:999px}
