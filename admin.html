@@ -139,6 +139,7 @@ dialog .actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2re
       <h2>Temps ouvert sur le site</h2>
       <p class="intro">Cliquez sur un temps pour l'ouvrir. Le temps précédent se ferme aussitôt, et les élèves voient le changement en rechargeant la page.</p>
       <div class="rail" id="rail"></div>
+      <div id="sub3" style="margin-top:1.2rem"></div>
       <div class="msg" id="phaseMsg" role="status"></div>
     </section>
 
@@ -285,6 +286,7 @@ function renderOverview(){
     return `<button class="step ${cls}" type="button" data-phase="${p}" aria-pressed="${p === OV.phase}"><span class="n">${p}</span><span class="t">${esc(t)}</span><span class="s">${p === OV.phase ? "Ouvert" : p < OV.phase ? "Terminé" : "Fermé"}</span></button>`;
   }).join("");
   $$("#rail .step").forEach(b => b.addEventListener("click", () => setPhase(+b.dataset.phase)));
+  renderSub3();
   const stat = (n, l) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`;
   $("#stats").innerHTML = [
     stat(c.eleves, "élèves dans la liste"), stat(c.themes, "thèmes proposés"), stat(c.votes_themes, "votes pour les thèmes"),
@@ -297,6 +299,27 @@ function renderOverview(){
   }).join("");
   $("#jauge").value = OV.jauge;
   $("#elevesCount").textContent = c.eleves ? `${c.eleves} élèves dans la liste : le contrôle des noms est actif.` : "Aucun élève dans la liste : le site accepte n'importe quel nom.";
+}
+
+async function renderSub3(){
+  const box = $("#sub3");
+  if(OV.phase !== 3){ box.innerHTML = ""; return; }
+  let open = false;
+  try{ const { data } = await sb.from("settings").select("names_vote_open").eq("id", 1).single(); open = !!(data && data.names_vote_open); }
+  catch(e){ box.innerHTML = `<p class="msg err">Exécutez d'abord etape3-noms.sql dans Supabase.</p>`; return; }
+  box.innerHTML = `<div style="background:var(--panel);border-radius:4px;padding:1rem 1.2rem;display:flex;flex-wrap:wrap;gap:.8rem 1.4rem;align-items:center;justify-content:space-between">
+    <div><strong style="font-stretch:125%">Temps 3 · Nom de l'expo</strong><br><span class="muted">${open
+      ? `Vote ouvert : les élèves votent, les propositions sont closes (${OV.counts.names} noms, ${OV.counts.votes_noms} votes).`
+      : `Propositions ouvertes : les élèves proposent des noms (${OV.counts.names} reçus). Le vote n'est pas encore ouvert.`}</span></div>
+    <button class="btn ${open ? "sec" : ""}" type="button" id="sub3Btn">${open ? "Rouvrir les propositions" : "Clore les propositions et ouvrir le vote"}</button></div>`;
+  $("#sub3Btn").addEventListener("click", async () => {
+    const ok = open
+      ? await confirmBox("Rouvrir les propositions ?", "Le vote des noms sera suspendu. Les votes déjà enregistrés sont conservés.", "Rouvrir")
+      : await confirmBox("Ouvrir le vote des noms ?", `Les élèves ne pourront plus proposer de nom. Ils voteront parmi les ${OV.counts.names} noms proposés. Pensez à masquer d'abord les noms inappropriés (section Noms).`, "Ouvrir le vote");
+    if(!ok) return;
+    try{ await rpc("admin_set_names_vote", { p_open: !open }); msg($("#phaseMsg"), "ok", open ? "Propositions rouvertes." : "Vote des noms ouvert."); loadAll(); }
+    catch(e){ msg($("#phaseMsg"), "err", "Le changement n'a pas été enregistré. Vérifiez que etape3-noms.sql a bien été exécuté."); }
+  });
 }
 
 async function setPhase(p){

@@ -179,6 +179,27 @@ ul.items li{border-bottom:1px solid var(--line);padding:1rem 0}
 
 /* Podium et annonces */
 .podium{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:2.2rem}
+.winner{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);background:var(--noir);color:#fff;border-radius:6px;overflow:hidden;margin:0 0 1rem}
+.winner:not(:has(.wimg)){grid-template-columns:1fr}
+@media (max-width:760px){.winner{grid-template-columns:1fr}}
+.winner .wimg{min-height:280px;background:var(--orange)}
+.winner .wimg img{width:100%;height:100%;object-fit:cover;display:block}
+.winner .wtxt{padding:clamp(1.4rem,4vw,2.6rem);display:flex;flex-direction:column;justify-content:center;gap:.7rem}
+.winner .wlbl{display:inline-block;align-self:flex-start;background:var(--vert);color:var(--noir);font-stretch:75%;font-weight:800;font-size:1rem;padding:.2rem .75rem;border-radius:999px}
+.winner .wt{margin:0;font-stretch:125%;font-weight:900;text-transform:uppercase;letter-spacing:.03em;line-height:.95;font-size:clamp(2.4rem,6.5vw,4.6rem);color:var(--orange)}
+.winner .ws{font-stretch:125%;font-weight:800;font-size:clamp(1.15rem,2.4vw,1.6rem);line-height:1.15}
+.winner .wd{margin:0;font-size:clamp(1.1rem,1.9vw,1.35rem);line-height:1.5;color:#f1e8e5;max-width:36rem}
+.runners{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;margin:0 0 2.4rem;font-stretch:75%;font-size:1.05rem;color:var(--muted)}
+.runners b{color:var(--fg);font-weight:700}
+.ballot.names{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.opt.name{padding:1.1rem 1rem 1.1rem 3rem}
+.opt.name .it-title{font-size:1.25rem;line-height:1.15}
+.opt.name input{top:50%;transform:translateY(-50%)}
+.namelist{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.namelist span{border:1.5px solid var(--line);border-radius:999px;padding:.35rem .9rem;font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:.9rem}
+.stage{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1.2rem}
+.stage span{font-stretch:75%;font-weight:700;padding:.25rem .8rem;border-radius:999px;border:1.5px solid var(--line);color:var(--muted)}
+.stage span.on{background:var(--vert);border-color:var(--vert);color:var(--noir)}
 @media (max-width:700px){.podium{grid-template-columns:1fr}}
 .pod{border-top:5px solid var(--vert);background:var(--panel);color:var(--panel-fg);padding:1rem 1.1rem}
 .pod:first-child{border-top-color:var(--orange)}
@@ -292,7 +313,7 @@ fieldset.bare{border:0;margin:0;padding:0;min-width:0}
     <section class="panel" id="p3" role="tabpanel" aria-labelledby="tab-3" hidden>
       <span class="status" data-status="3"></span>
       <h2>Trouvons le nom de l'exposition</h2>
-      <p class="intro">Voici les thèmes arrivés en tête. Proposez un nom qui leur donne vie, puis votez pour le nom que vous préférez. Un seul vote par élève.</p>
+      <p class="intro">Vous avez choisi le thème. Proposez maintenant un nom qui lui donne vie, puis votez pour celui que vous préférez. Un seul vote par élève.</p>
       <div class="podium" id="podium"></div>
       <div id="nameZone"></div>
     </section>
@@ -371,6 +392,8 @@ function errText(e){
   if(m.includes("nombre_invalide")) return "Indiquez au moins une personne (10 au maximum par inscription).";
   if(m.includes("eleve_inconnu")) return "Ce nom, ce prénom et cette classe ne correspondent à aucun élève. Vérifiez l'orthographe.";
   if(m.includes("limite")) return "Vous avez déjà fait " + MAX_PROPOSALS + " propositions.";
+  if(m.includes("propositions_closes")) return "Les propositions de noms sont closes : c'est maintenant le moment de voter.";
+  if(m.includes("vote_pas_ouvert")) return "Le vote des noms n'est pas encore ouvert. Proposez d'abord vos idées !";
   if(m.includes("ferme")) return "Cette étape n'est pas ouverte.";
   if(m.includes("choix_invalide")) return "Votre sélection n'est pas valide. Rechargez la page et recommencez.";
   if(m.includes("non_configure")) return "Le site n'est pas encore relié à sa base de données.";
@@ -389,6 +412,7 @@ function demoPoster(v){
 }
 
 /* ---------- Données : Supabase ou démo locale ---------- */
+let NAMES_VOTE = false;
 const useSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 const sb = useSupabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 function showAlert(t){ $("#alertText").textContent = t; $("#alertBar").hidden = false; }
@@ -417,7 +441,8 @@ const idArgs = w => ({ p_nom: w.nom, p_prenom: w.prenom, p_classe: w.classe });
 const api = {
   async phase(){
     if(!sb) return demo.load().phase;
-    const { data, error } = await sb.from("settings").select("phase").eq("id",1).single(); if(error) throw error; return data.phase;
+    const { data, error } = await sb.from("settings").select("phase,names_vote_open").eq("id",1).single(); if(error) throw error;
+    NAMES_VOTE = !!data.names_vote_open; return data.phase;
   },
   async themes(){
     if(!sb) return demo.load().themes;
@@ -576,8 +601,18 @@ async function renderBallotThemes(){
 async function renderPodium(){
   const p = $("#podium");
   if(PHASE < 3) return p.innerHTML = "";
-  try{ const top = await api.topThemes();
-    p.innerHTML = top.map((t,i) => `<div class="pod"><span class="rank">${i+1}</span><span class="it-title">${esc(t.title)}</span><span class="votes">${plural(t.votes,"voix","voix")}</span></div>`).join("");
+  try{
+    const top = await api.topThemes();
+    if(!top || !top.length) return p.innerHTML = "";
+    const w = top[0];
+    const m = String(w.title || "").match(/^(.+?)\s*[:–—-]\s+(.+)$/);
+    const main = m ? m[1] : w.title, sub = m ? m[2] : "";
+    p.className = "";
+    p.innerHTML = `<article class="winner">${w.image_url ? `<div class="wimg"><img src="${esc(w.image_url)}" alt=""></div>` : ""}
+      <div class="wtxt"><span class="wlbl">Thème de l'exposition · ${plural(w.votes,"voix","voix")}</span>
+      <h3 class="wt">${esc(main)}</h3>${sub ? `<div class="ws">${esc(sub)}</div>` : ""}
+      ${w.description ? `<p class="wd">${esc(w.description)}</p>` : ""}</div></article>
+      ${top.length > 1 ? `<div class="runners"><span>Également plébiscités :</span>${top.slice(1).map((t,i) => `<span><b>${i+2}. ${esc(t.title)}</b> · ${plural(t.votes,"voix","voix")}</span>`).join("")}</div>` : ""}`;
   }catch(e){ p.innerHTML = ""; }
 }
 async function renderNames(){
@@ -588,27 +623,40 @@ async function renderNames(){
     let top = null; try{ top = await api.topName(); }catch(e){}
     return z.innerHTML = top ? doneBox(`Le nom arrivé en tête est <strong>« ${esc(top.name)} »</strong>, avec ${plural(top.votes,"voix","voix")}.`) : soon("Le vote des noms est clos.");
   }
-  const form = `<form class="card" id="formName" novalidate><h3>Votre proposition de nom</h3>
+  const stage = `<div class="stage" aria-label="Étapes du choix du nom"><span class="${NAMES_VOTE ? "" : "on"}">1 · Propositions${NAMES_VOTE ? " closes" : " ouvertes"}</span><span class="${NAMES_VOTE ? "on" : ""}">2 · Vote${NAMES_VOTE ? " ouvert" : " à venir"}</span></div>`;
+
+  /* Moment 1 : on propose */
+  if(!NAMES_VOTE){
+    const list = names.length ? `<div class="namelist">${names.map(n => `<span>${esc(n.name)}</span>`).join("")}</div>`
+      : `<p class="empty">Aucun nom proposé pour l'instant. Lancez-vous !</p>`;
+    z.innerHTML = stage + `<div class="cols"><form class="card" id="formName" novalidate><h3>Votre proposition de nom</h3>
       <div class="field"><label for="nmText">Nom proposé</label><input type="text" id="nmText" maxlength="50" placeholder="Ex. : Traces fraîches">
       <div class="hint"><span>Facile à dire, facile à retenir</span><span data-count="nmText">0/50</span></div></div>
-      <button class="btn" type="submit">Proposer ce nom</button><div class="msg" id="msgName" role="status"></div></form>`;
-  const vote = sessionDone.names ? doneBox(`<strong>Vote enregistré.</strong> Merci ! Le nom gagnant sera dévoilé au temps 4.`)
-    : names.length ? `<fieldset class="bare"><legend class="sr">Noms proposés</legend><ul class="items" style="display:grid;gap:.6rem">${
-        names.map(n => `<label class="opt name"><input type="radio" name="vn" value="${esc(n.id)}"><span class="it-title">${esc(n.name)}</span></label>`).join("")
-      }</ul></fieldset><div class="votebar"><span class="count">Un seul choix</span><button class="btn" id="vnBtn" disabled>Voter pour ce nom</button></div><div class="msg" id="msgVn" role="status"></div>`
-    : `<p class="empty">Aucun nom proposé. Lancez-vous !</p>`;
-  z.innerHTML = `<div class="cols">${form}<div><div class="listhead"><h3>Noms proposés</h3><span>${plural(names.length,"nom","noms")}</span></div>${vote}</div></div>`;
-  bindCount("nmText");
-  $("#formName").addEventListener("submit", async e => {
-    e.preventDefault();
-    const msg = $("#msgName"); const w = requireWho(msg); if(!w) return;
-    const name = $("#nmText").value.trim(); if(!name) return showMsg(msg, "err", "Écrivez un nom avant de l'envoyer.");
-    try{ await api.proposeName(w, name); await renderNames(); showMsg($("#msgName"), "ok", "Nom proposé. Il apparaît dans la liste."); }
-    catch(err){ showMsg(msg, "err", errText(err)); }
-  });
+      <button class="btn" type="submit">Proposer ce nom</button><div class="msg" id="msgName" role="status"></div></form>
+      <div><div class="listhead"><h3>Noms déjà proposés</h3><span>${plural(names.length,"nom","noms")}</span></div>${list}
+      <p class="muted" style="margin-top:1rem">Le vote s'ouvrira quand toutes les idées seront réunies.</p></div></div>`;
+    bindCount("nmText");
+    $("#formName").addEventListener("submit", async e => {
+      e.preventDefault();
+      const msg = $("#msgName"); const w = requireWho(msg); if(!w) return;
+      const name = $("#nmText").value.trim(); if(!name) return showMsg(msg, "err", "Écrivez un nom avant de l'envoyer.");
+      try{ await api.proposeName(w, name); await renderNames(); showMsg($("#msgName"), "ok", "Nom proposé. Il apparaît dans la liste."); }
+      catch(err){ showMsg(msg, "err", errText(err)); if(String(err && err.message).includes("propositions_closes")){ NAMES_VOTE = true; setTimeout(renderNames, 1500); } }
+    });
+    return;
+  }
+
+  /* Moment 2 : on vote */
+  if(sessionDone.names) return z.innerHTML = stage + doneBox(`<strong>Vote enregistré.</strong> Merci ! Le nom gagnant sera dévoilé au temps 4.`);
+  if(!names.length) return z.innerHTML = stage + soon("Aucun nom à départager.");
+  z.innerHTML = stage + `<h3 style="font-stretch:125%;font-weight:800;font-size:1.3rem;margin:0 0 .4rem">Votez pour le nom de l'exposition</h3>
+    <p class="intro" style="margin-bottom:1.2rem">Choisissez un seul nom, puis validez. Votre vote ne pourra plus être modifié.</p>
+    <fieldset class="bare"><legend class="sr">Noms proposés</legend><div class="ballot names">${
+      names.map(n => `<label class="opt name"><input type="radio" name="vn" value="${esc(n.id)}"><span class="it-title">${esc(n.name)}</span></label>`).join("")
+    }</div></fieldset><div class="votebar"><span class="count">Un seul choix</span><button class="btn" id="vnBtn" disabled>Voter pour ce nom</button></div><div class="msg" id="msgVn" role="status"></div>`;
   const radios = $$("input[name=vn]");
   radios.forEach(r => r.addEventListener("change", () => $("#vnBtn").disabled = false));
-  if($("#vnBtn")) $("#vnBtn").addEventListener("click", async () => {
+  $("#vnBtn").addEventListener("click", async () => {
     const msg = $("#msgVn"); const w = requireWho(msg); if(!w) return;
     const sel = radios.find(r=>r.checked); if(!sel) return;
     $("#vnBtn").disabled = true;
